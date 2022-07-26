@@ -1,0 +1,14 @@
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]
+
+[tool.poetry]
+authors = ["Clay O'Neil"]
+description = "A debugger that can step forward AND backwards"
+readme = "README.md"
+version = "0.0.1"
+packages = [{ include = "timeless_debugger"}]
+
+[tool.poetry.dependencies]
+pydantic
+python
