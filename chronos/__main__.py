@@ -1,5 +1,6 @@
 import sys
-from .main import debugger
+
+from main import debugger
 
 path = sys.argv[1]
 db = debugger()

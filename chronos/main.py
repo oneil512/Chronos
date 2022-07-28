@@ -1,22 +1,21 @@
-import inspect
-import click
-import typing
-import logging
-from collections import defaultdict
 import ast
 import copy
+import inspect
+import logging
+import typing
+from collections import defaultdict
 
+import click
 
-FUNCTION_DEF_KEY_SUFFIX = 'FUNC_DEF'
+FUNCTION_DEF_KEY_SUFFIX = "FUNC_DEF"
 
 
 class debugger:
-
     def run(self, path):
         stack = [defaultdict()]
 
         try:
-            with open(path, 'r') as f:
+            with open(path, "r") as f:
                 current_code = f.read()
         except IOError:
             raise SystemError(f"Cannot read path {path}")
@@ -32,6 +31,7 @@ class debugger:
         code_lines = current_code.splitlines()
         done = False
         cur = 0
+
         while not done and syntax_tree.body:
             node = syntax_tree.body[cur]
 
@@ -53,48 +53,48 @@ class debugger:
                     end_col_offset = node.end_col_offset
 
                 end = end_col_offset + 1 if end_col_offset else len(code_lines[i])
-                executable_str += code_lines[i][col_offset:end] + '\n'
+                executable_str += code_lines[i][col_offset:end] + "\n"
                 col_offset = end_col_offset = 0
 
             self.print_code(executable_str)
-            step = click.prompt('Enter: o, i, b, out', type=str)
-            
-            #wrong, check for function another way
-            if hasattr(node,'value') and node.value.__class__ is ast.Call:
-                if not stack[-1].get('locals'):
-                    stack[-1]['locals'] = defaultdict()
+            step = click.prompt("Enter: o, i, b, out", type=str)
 
-                stack[-1]['locals'][node.value.func.id + FUNCTION_DEF_KEY_SUFFIX] = executable_str
+            # wrong, check for function another way
+            if hasattr(node, "value") and node.value.__class__ is ast.Call:
+                if not stack[-1].get("locals"):
+                    stack[-1]["locals"] = defaultdict()
 
-            if step.lower().strip() == 'i':
+                stack[-1]["locals"][
+                    node.value.func.id + FUNCTION_DEF_KEY_SUFFIX
+                ] = executable_str
+
+            if step.lower().strip() == "i":
 
                 if node.value.__class__ is ast.Call:
 
                     self._step_into(node, stack)
                     continue
 
-            if step.lower().strip() == 'o':
+            if step.lower().strip() == "o":
                 frame = self._run_executor(executable_str.strip(), stack.pop())
 
                 if frame:
                     stack.append(frame)
 
-
-    def _run_executor(self, executable_str, frame):   
+    def _run_executor(self, executable_str, frame):
 
         try:
-            exec(executable_str, frame.get('globals', None), frame.get('locals', None))
+            exec(executable_str, frame.get("globals", None), frame.get("locals", None))
         except Exception as e:
-            print(f'Exception executing str {executable_str}, {e}')
+            print(f"Exception executing str {executable_str}, {e}")
 
         _locals = copy.deepcopy(inspect.currentframe().f_locals)
 
-        del _locals['frame']
-        del _locals['self']
+        del _locals["frame"]
+        del _locals["self"]
 
-
-        frame['locals'] = {**frame.get('locals', {}), **_locals}
-        frame['globals'] = {**frame.get('globals', {}), **_locals}
+        frame["locals"] = {**frame.get("locals", {}), **_locals}
+        frame["globals"] = {**frame.get("globals", {}), **_locals}
 
         return frame
 
@@ -104,7 +104,7 @@ class debugger:
         func_name = node.value.func.id + FUNCTION_DEF_KEY_SUFFIX
 
         cur_frame = defaultdict()
-        cur_frame['globals'] = {**prev_frame['locals'], **prev_frame['globals']}
+        cur_frame["globals"] = {**prev_frame["locals"], **prev_frame["globals"]}
 
         try:
             executable_str = self._resolve(prev_frame, func_name)
@@ -117,24 +117,17 @@ class debugger:
 
     def _resolve(self, frame, name):
 
-        if 'locals' in frame:
-            if name in frame['locals']:
-                return frame['locals'][name]
+        if "locals" in frame:
+            if name in frame["locals"]:
+                return frame["locals"][name]
 
-        if 'globals' in frame:
-            if name in frame['globals']:
-                return frame['globals'][name]
+        if "globals" in frame:
+            if name in frame["globals"]:
+                return frame["globals"][name]
 
-        raise SystemError(f'Unable to resolve {name} in frame {frame}')
+        raise SystemError(f"Unable to resolve {name} in frame {frame}")
 
     def print_code(self, code):
-        print('\n\n')
+        print("\n\n")
         print(code)
-        print('\n\n')
-
-
-if __name__ == '__main__':
-    import sys
-    path = sys.argv[1]
-    db = debugger()
-    db.run(path)
+        print("\n\n")
