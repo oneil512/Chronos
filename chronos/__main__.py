@@ -1,7 +1,7 @@
 import sys
 
-from main import debugger
+from main import Debugger
 
 path = sys.argv[1]
-db = debugger()
+db = Debugger()
 db.run(path)

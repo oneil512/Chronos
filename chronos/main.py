@@ -2,8 +2,8 @@ import ast
 import copy
 import inspect
 import logging
-from typing import Dict, List, Type
 from collections import defaultdict
+from typing import Dict, List, Type
 
 import click
 
@@ -12,7 +12,7 @@ FUNCTION_DEF_KEY_SUFFIX = "FUNC_DEF"
 logger = logging.getLogger(__name__)
 
 
-class debugger:
+class Debugger:
     def run(self, path: str) -> None:
         stack = [defaultdict()]
 

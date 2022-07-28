@@ -1,3 +1,3 @@
-from main import debugger
+from main import Debugger
 
-__all__ = ["debugger"]
+__all__ = ["Debugger"]
