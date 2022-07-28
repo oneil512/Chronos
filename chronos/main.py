@@ -2,16 +2,18 @@ import ast
 import copy
 import inspect
 import logging
-import typing
+from typing import Dict, List, Type
 from collections import defaultdict
 
 import click
 
 FUNCTION_DEF_KEY_SUFFIX = "FUNC_DEF"
 
+logger = logging.getLogger(__name__)
+
 
 class debugger:
-    def run(self, path):
+    def run(self, path: str) -> None:
         stack = [defaultdict()]
 
         try:
@@ -22,7 +24,7 @@ class debugger:
 
         self._run(current_code, stack)
 
-    def _run(self, current_code, stack):
+    def _run(self, current_code: str, stack: List[Dict]) -> None:
         try:
             syntax_tree = ast.parse(current_code)
         except ValueError as e:
@@ -81,7 +83,7 @@ class debugger:
                 if frame:
                     stack.append(frame)
 
-    def _run_executor(self, executable_str, frame):
+    def _run_executor(self, executable_str: str, frame: Dict) -> Dict:
 
         try:
             exec(executable_str, frame.get("globals", None), frame.get("locals", None))
@@ -98,7 +100,7 @@ class debugger:
 
         return frame
 
-    def _step_into(self, node, stack):
+    def _step_into(self, node: Type[ast.mod], stack: List[Dict]) -> None:
         # Create a new frame and _run it
         prev_frame = stack[-1]
         func_name = node.value.func.id + FUNCTION_DEF_KEY_SUFFIX
@@ -115,7 +117,7 @@ class debugger:
         # recursive might not work for if we want to step backwards.
         # bc frame will be lost once we are done with it
 
-    def _resolve(self, frame, name):
+    def _resolve(self, frame: Dict, name: str) -> str:
 
         if "locals" in frame:
             if name in frame["locals"]:
@@ -127,7 +129,7 @@ class debugger:
 
         raise SystemError(f"Unable to resolve {name} in frame {frame}")
 
-    def print_code(self, code):
+    def print_code(self, code: str) -> None:
         print("\n\n")
         print(code)
         print("\n\n")
