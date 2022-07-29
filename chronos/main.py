@@ -3,7 +3,7 @@ import copy
 import inspect
 import logging
 from collections import defaultdict
-from typing import Dict, List, Type
+from typing import Dict, List, Tuple, Type
 
 import click
 
@@ -13,7 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 class Debugger:
+    def __init__(self):
+        self.states_across_time = []
+
     def run(self, path: str) -> None:
+        """Read file to execute and execute it."""
         stack = [defaultdict()]
 
         try:
@@ -25,21 +29,19 @@ class Debugger:
         self._run(current_code, stack)
 
     def _run(self, current_code: str, stack: List[Dict]) -> None:
+        """Parse code into tree and execute whole tree."""
         try:
             syntax_tree = ast.parse(current_code)
         except ValueError as e:
             raise SystemError(f"Cannot parse into abstract syntax tree, {e}")
 
         code_lines = current_code.splitlines()
-        done = False
-        cur = 0
+        ast_stack = list(reversed(syntax_tree.body))
 
-        while not done and syntax_tree.body:
-            node = syntax_tree.body[cur]
+        self.states_across_time.append((copy.deepcopy(ast_stack), copy.deepcopy(stack)))
 
-            cur += 1
-            if cur == len(syntax_tree.body):
-                done = True
+        while ast_stack:
+            node = ast_stack.pop()
 
             executable_str = ""
 
@@ -61,30 +63,42 @@ class Debugger:
             self.print_code(executable_str)
             step = click.prompt("Enter: o, i, b, out", type=str)
 
-            # wrong, check for function another way
-            if hasattr(node, "value") and node.value.__class__ is ast.Call:
+            if type(node) is ast.FunctionDef:
                 if not stack[-1].get("locals"):
                     stack[-1]["locals"] = defaultdict()
 
                 stack[-1]["locals"][
-                    node.value.func.id + FUNCTION_DEF_KEY_SUFFIX
+                    node.name + FUNCTION_DEF_KEY_SUFFIX
                 ] = executable_str
+
+            if step.lower().strip() == "b":
+                self.states_across_time.pop()
+                ast_stack, stack = self.states_across_time.pop()
+                continue
 
             if step.lower().strip() == "i":
 
-                if node.value.__class__ is ast.Call:
+                if type(node.value) is ast.Call:
 
-                    self._step_into(node, stack)
-                    continue
+                    inner_ast, frame = self._step_into(node, stack)
+                    ast_stack.extend(reversed(inner_ast))
+
+                else:
+                    print("Can't step into non function call. Stepping over.")
+                    step = "o"
 
             if step.lower().strip() == "o":
                 frame = self._run_executor(executable_str.strip(), stack.pop())
 
-                if frame:
-                    stack.append(frame)
+            if frame:
+                stack.append(frame)
+
+            self.states_across_time.append(
+                (copy.deepcopy(ast_stack), copy.deepcopy(stack))
+            )
 
     def _run_executor(self, executable_str: str, frame: Dict) -> Dict:
-
+        """Execute code."""
         try:
             exec(executable_str, frame.get("globals", None), frame.get("locals", None))
         except Exception as e:
@@ -100,8 +114,10 @@ class Debugger:
 
         return frame
 
-    def _step_into(self, node: Type[ast.mod], stack: List[Dict]) -> None:
-        # Create a new frame and _run it
+    def _step_into(
+        self, node: Type[ast.mod], stack: List[Dict]
+    ) -> Tuple(Type[ast.AST, Dict]):
+        """Step into a new call frame."""
         prev_frame = stack[-1]
         func_name = node.value.func.id + FUNCTION_DEF_KEY_SUFFIX
 
@@ -111,14 +127,12 @@ class Debugger:
         try:
             executable_str = self._resolve(prev_frame, func_name)
         except KeyError:
-            raise SystemError(f"{func_name} not defined in calling frame")
+            raise SystemError(f"{func_name} not defined in calling frame.")
 
-        self._run(executable_str, stack + [cur_frame])
-        # recursive might not work for if we want to step backwards.
-        # bc frame will be lost once we are done with it
+        return ast.parse(executable_str), cur_frame
 
     def _resolve(self, frame: Dict, name: str) -> str:
-
+        """Resolve name in frame in order of expanding scope."""
         if "locals" in frame:
             if name in frame["locals"]:
                 return frame["locals"][name]
@@ -130,6 +144,7 @@ class Debugger:
         raise SystemError(f"Unable to resolve {name} in frame {frame}")
 
     def print_code(self, code: str) -> None:
+        """Print code in a readable manner."""
         print("\n\n")
         print(code)
         print("\n\n")
