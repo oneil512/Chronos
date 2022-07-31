@@ -22,7 +22,13 @@ class Debugger:
 
     def run(self, path: str) -> None:
         """Read file to execute and execute it."""
-        stack = [defaultdict()]
+        stack = []
+        frame = defaultdict()
+
+        frame["locals"] = {}
+        frame["globals"] = {}
+
+        stack.append(frame)
 
         try:
             with open(path, "r") as f:
@@ -58,7 +64,7 @@ class Debugger:
         try:
             syntax_tree = ast.parse(current_code)
         except ValueError as e:
-            raise SystemError(f"Cannot parse into abstract syntax tree, {e}")
+            print(f"Cannot parse into abstract syntax tree, {e}")
 
         ast_stack = list(reversed(syntax_tree.body))
         self.states_across_time.append((copy.deepcopy(ast_stack), copy.deepcopy(stack)))
@@ -146,7 +152,7 @@ class Debugger:
 
         return frame
 
-    def _step_back(self) -> Tuple(List[Type[ast.mod]], List[Dict]):
+    def _step_back(self) -> Tuple[List[Type[ast.mod]], List[Dict]]:
         """Step back to the previous code and state."""
         self.states_across_time.pop()
         ast_stack, stack = self.states_across_time.pop()
@@ -158,13 +164,14 @@ class Debugger:
 
     def _step_into(
         self, node: Type[ast.mod], stack: List[Dict]
-    ) -> Tuple(Type[ast.AST], Dict):
+    ) -> Tuple[Type[ast.AST], Dict]:
         """Step into a new call frame."""
         prev_frame = stack[-1]
         func_name = node.value.func.id + FUNCTION_DEF_KEY_SUFFIX
 
         cur_frame = defaultdict()
         cur_frame["globals"] = {**prev_frame["locals"], **prev_frame["globals"]}
+        cur_frame["locals"] = {}
 
         try:
             executable_str = self._resolve(prev_frame, func_name)
